@@ -15,12 +15,12 @@ class AppConstants {
   /// Backend API base URL — auto-selected by platform.
   static String get apiBaseUrl {
     if (kIsWeb) {
-      return 'http://localhost:8000';  //'http://192.168.100.152:8000';//Mobile version
+      return 'http://localhost:8000';//'http://192.168.100.152:8000'; //Mobile version
     }
     if (isAndroid()) {
-      return 'http://localhost:8000';  //'http://192.168.100.152:8000'; 'http://localhost:8000';//; //Mobile version
+      return 'http://localhost:8000'; //'http://192.168.100.152:8000'; //'http://192.168.100.152:8000'; //'http://localhost:8000';  //'http://192.168.100.152:8000'; 'http://localhost:8000';//; //Mobile version
     }
-    return 'http://localhost:8000';  //'http://192.168.100.152:8000'; //'http://localhost:8000';//'http://192.168.100.152:8000'; //Mobile version
+    return 'http://localhost:8000';//'http://192.168.100.152:8000'; //'http://192.168.100.152:8000'; //'http://localhost:8000';  //'http://192.168.100.152:8000'; //'http://localhost:8000';//'http://192.168.100.152:8000'; //Mobile version
   }
 
   /// Supported languages.

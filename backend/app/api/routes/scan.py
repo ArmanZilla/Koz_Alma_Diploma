@@ -11,7 +11,7 @@ import logging
 from io import BytesIO
 from typing import Optional
 
-from fastapi import APIRouter, File, Form, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, Request, UploadFile
 from PIL import Image
 
 from app.api.schemas import DetectionItem, ScanResponse
@@ -24,6 +24,7 @@ router = APIRouter(tags=["scan"])
 @router.post("/scan", response_model=ScanResponse)
 async def scan_image(
     request: Request,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="Image to scan"),
     lang: str = Form("ru", description="Language: ru or kz"),
     tts_speed: float = Form(1.0, description="TTS speed multiplier"),
@@ -51,7 +52,7 @@ async def scan_image(
     # 2. Run pipeline (now uses text_builder internally)
     result = pipeline.run(image, lang=lang)
 
-    # 3. Build detection items from pipeline dicts
+    # Build detection items from pipeline dicts
     detection_items = [
         DetectionItem(
             class_id=d["class_id"],
@@ -76,7 +77,7 @@ async def scan_image(
                 "detections": len(result.detections),
                 "has_unknown": True,
             }
-            unknown_mgr.store_image(image_bytes, metadata=meta, session_id=session_id)
+            unknown_mgr.store_image(image_bytes, metadata=meta, session_id=session_id, background_tasks=background_tasks)
         except Exception as exc:
             logger.error("Failed to store unknown image: %s", exc)
 

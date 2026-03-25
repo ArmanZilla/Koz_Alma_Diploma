@@ -4,7 +4,7 @@ val: ../val/images
 test: ../test/images
 
 nc: 39
-names: ['Door', 'Person', 'Trash bin', 'bag', 'bed', 'bench', 'bicycle', 'book', 'bottle', 'bus', 'bus_stop', 'car', 'chair', 'child', 'closet', 'construction_fence', 'corridor', 'crosswalk', 'curb', 'elevator', 'entrance', 'glass_wall', 'hole', 'laptop', 'people', 'phone', 'pole', 'ramp', 'road', 'shelf', 'sidewalk', 'sofa', 'stairs', 'steps_down', 'stroller', 'table', 'traffic_light', 'wet_floor', 'wheelchair']
+names: ['door', 'person', 'trash_bin', 'bag', 'bed', 'bench', 'bicycle', 'book', 'bottle', 'bus', 'bus_stop', 'car', 'chair', 'child', 'closet', 'construction_fence', 'corridor', 'crosswalk', 'curb', 'elevator', 'entrance', 'glass_wall', 'hole', 'laptop', 'people', 'phone', 'pole', 'ramp', 'road', 'shelf', 'sidewalk', 'sofa', 'stairs', 'steps_down', 'stroller', 'table', 'traffic_light', 'wet_floor', 'wheelchair']
 
 roboflow:
   workspace: yolov1-gc7rb

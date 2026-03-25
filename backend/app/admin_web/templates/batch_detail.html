@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KozAlma AI — {{ batch.batch_id if batch else 'Batch' }}</title>
+    <link rel="stylesheet" href="/static/admin.css">
+</head>
+
+<body>
+    <header class="admin-header">
+        <h1>KozAlma AI — Детали батча</h1>
+        <nav>
+            <a href="/admin" class="nav-link">← Назад</a>
+            <a href="/admin/logout" class="nav-link">Выход</a>
+        </nav>
+    </header>
+
+    <main class="container">
+        {% if error_msg %}
+        <div class="error-banner">⚠️ {{ error_msg }}</div>
+        {% endif %}
+
+        {% if batch %}
+        <!-- Batch Header -->
+        <div class="batch-header">
+            <div class="batch-title">
+                <h2><code>{{ batch.batch_id }}</code></h2>
+                <span class="badge badge-{{ batch.status }}">{{ batch.status }}</span>
+            </div>
+            <a href="/admin/download/{{ batch.batch_id }}" class="btn-download-all">
+                📦 Скачать Full ZIP
+            </a>
+        </div>
+
+        <!-- Meta Cards -->
+        <div class="batch-meta-cards">
+            <div class="meta-card">
+                <div class="meta-label">Изображений</div>
+                <div class="meta-value">{{ batch.count }}</div>
+            </div>
+            <div class="meta-card">
+                <div class="meta-label">Создан</div>
+                <div class="meta-value">{{ batch.created_at[:19] if batch.created_at else '—' }}</div>
+            </div>
+            <div class="meta-card">
+                <div class="meta-label">Размечен</div>
+                <div class="meta-value">{{ batch.labeled_at[:19] if batch.labeled_at else '—' }}</div>
+            </div>
+            <div class="meta-card">
+                <div class="meta-label">Модель</div>
+                <div class="meta-value meta-model">{{ batch.model_version if batch.model_version else '—' }}</div>
+            </div>
+            <div class="meta-card">
+                <div class="meta-label">Разметок</div>
+                <div class="meta-value">{{ batch.label_count }}</div>
+            </div>
+        </div>
+
+        <!-- Image Grid -->
+        {% if images %}
+        <h3 class="section-title">Изображения ({{ images|length }})</h3>
+        <div class="image-grid">
+            {% for img in images %}
+            <div class="image-card">
+                <a href="/admin/image/{{ img.key }}" target="_blank">
+                    <img src="/admin/image/{{ img.key }}" alt="{{ img.name }}" loading="lazy">
+                </a>
+                <div class="image-name">{{ img.name }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>🖼️ Нет изображений в этом батче</p>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state">
+            <p>❌ Батч не найден</p>
+            <a href="/admin" class="btn-sm">← Вернуться</a>
+        </div>
+        {% endif %}
+    </main>
+</body>
+
+</html>

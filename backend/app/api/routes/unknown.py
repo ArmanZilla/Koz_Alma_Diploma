@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, UploadFile
 from fastapi.responses import Response
 
 from app.api.schemas import UnknownGroupItem, UnknownImageItem
@@ -83,6 +83,7 @@ async def download_group(group_id: str, request: Request) -> Response:
 @router.post("/upload")
 async def upload_unknown(
     request: Request,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     session_id: Optional[str] = Form(None),
     user: Dict[str, Any] = Depends(get_current_user),
@@ -102,7 +103,7 @@ async def upload_unknown(
     }
 
     try:
-        key = mgr.store_image(image_bytes, metadata=metadata, session_id=session_id)
+        key = mgr.store_image(image_bytes, metadata=metadata, session_id=session_id, background_tasks=background_tasks)
     except Exception as exc:
         logger.error("upload_unknown failed: %s", exc)
         return {"error": "Upload failed", "key": None}

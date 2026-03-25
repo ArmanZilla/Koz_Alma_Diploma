@@ -44,8 +44,16 @@ class KozAlmaApp extends StatelessWidget {
   }
 }
 
-/// Auth gate — checks for saved tokens on startup.
-/// If valid → WelcomeScreen, if not → EnterIdentifierScreen.
+/// Auth gate — validates tokens on EVERY cold start.
+///
+/// Lifecycle logic:
+///   • Cold start (initState) → always validates tokens server-side
+///   • Resume from background → no re-auth (user just switched apps)
+///   • App killed + relaunched → initState runs again → re-validates
+///
+/// This ensures:
+///   ✔ Minimize/resume = stays logged in
+///   ✔ Kill + relaunch = requires valid token (re-login if expired)
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -53,50 +61,97 @@ class AuthGate extends StatefulWidget {
   State<AuthGate> createState() => _AuthGateState();
 }
 
-class _AuthGateState extends State<AuthGate> {
+class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   bool _checking = true;
   bool _authenticated = false;
 
   @override
   void initState() {
     super.initState();
-    _checkAuth();
+    WidgetsBinding.instance.addObserver(this);
+    // Every cold start triggers full server-side token validation.
+    // SharedPreferences tokens persist, but we ALWAYS verify them.
+    _validateTokens();
   }
 
-  Future<void> _checkAuth() async {
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Lifecycle observer — only used for logging/diagnostics.
+  /// We do NOT clear tokens on background/detach.
+  /// Re-validation happens naturally on the next cold start (initState).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    debugPrint('AuthGate lifecycle: $state');
+    // No action needed:
+    // - resumed: user returned from background, already authenticated
+    // - inactive/hidden/paused: going to background, keep session
+    // - detached: app being killed, next launch = new initState = re-validate
+  }
+
+  /// Full server-side token validation.
+  ///
+  /// 1. Check if tokens exist locally
+  /// 2. Try /auth/me with access token
+  /// 3. If 401 → try refresh
+  /// 4. If refresh fails → clear storage → login screen
+  Future<void> _validateTokens() async {
     final tokenStore = TokenStore();
     final hasTokens = await tokenStore.hasTokens();
 
-    if (hasTokens) {
-      // Try to validate token via /auth/me
-      final authApi = AuthApiService(tokenStore: tokenStore);
-      final profile = await authApi.me();
-      if (profile != null) {
+    if (!hasTokens) {
+      // No tokens at all → straight to login
+      if (mounted) {
+        setState(() {
+          _authenticated = false;
+          _checking = false;
+        });
+      }
+      return;
+    }
+
+    final authApi = AuthApiService(tokenStore: tokenStore);
+
+    // Step 1: Try access token
+    final profile = await authApi.me();
+    if (profile != null) {
+      if (mounted) {
         setState(() {
           _authenticated = true;
           _checking = false;
         });
-        return;
       }
+      return;
+    }
 
-      // Token expired — try refresh
-      final refreshed = await authApi.refresh();
-      if (refreshed) {
-        final retryProfile = await authApi.me();
-        if (retryProfile != null) {
+    // Step 2: Access token failed → try refresh
+    final refreshed = await authApi.refresh();
+    if (refreshed) {
+      final retryProfile = await authApi.me();
+      if (retryProfile != null) {
+        if (mounted) {
           setState(() {
             _authenticated = true;
             _checking = false;
           });
-          return;
         }
+        return;
       }
     }
 
-    setState(() {
-      _authenticated = false;
-      _checking = false;
-    });
+    // Step 3: Both failed → clear tokens and force login
+    debugPrint('AuthGate: token validation failed — forcing login');
+    await tokenStore.clear();
+
+    if (mounted) {
+      setState(() {
+        _authenticated = false;
+        _checking = false;
+      });
+    }
   }
 
   @override

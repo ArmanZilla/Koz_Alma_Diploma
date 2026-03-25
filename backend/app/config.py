@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     confidence_threshold: float = 0.35
     unknown_threshold: float = 0.30
 
+    # ── Auto-Label ──────────────────────────────────────────────────────
+    auto_label_enabled: bool = True
+    auto_label_min_conf: float = 0.15
+
     # ── TTS ─────────────────────────────────────────────────────────────
     tts_default_lang: str = "ru"
     tts_default_speed: float = 1.0
@@ -80,6 +84,14 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_pass: str = ""
     smtp_from: str = ""
+
+    # ── Twilio (WhatsApp OTP) ───────────────────────────────────────────
+    # Leave empty to disable WhatsApp channel (app won't crash).
+    # For Twilio Sandbox: user must first send "join <sandbox-code>"
+    # to the sandbox number before receiving messages.
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_whatsapp_from: str = "whatsapp:+14155238886"  # sandbox default
 
     # ── Database ────────────────────────────────────────────────────────
     database_url: str = f"sqlite+aiosqlite:///{_ROOT / 'koz_alma.db'}"

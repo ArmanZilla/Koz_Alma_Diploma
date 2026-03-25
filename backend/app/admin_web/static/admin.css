@@ -11,6 +11,9 @@
     --error: #ef4444;
     --border: #2d3142;
     --radius: 12px;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --info: #3b82f6;
 }
 
 * {
@@ -138,7 +141,7 @@ body {
 
 /* ── Container ── */
 .container {
-    max-width: 960px;
+    max-width: 1100px;
     margin: 2rem auto;
     padding: 0 1.5rem;
 }
@@ -196,10 +199,21 @@ body {
     font-size: 0.8rem;
     font-weight: 500;
     transition: background 0.2s;
+    margin-right: 4px;
 }
 
 .btn-sm:hover {
     background: var(--primary-light);
+}
+
+.btn-sm.btn-outline {
+    background: transparent;
+    border: 1px solid var(--primary);
+    color: var(--primary-light);
+}
+
+.btn-sm.btn-outline:hover {
+    background: rgba(108, 99, 255, 0.15);
 }
 
 /* ── Empty State ── */
@@ -216,4 +230,194 @@ body {
 
 .hint {
     font-size: 0.9rem;
+}
+
+/* ── Error Banner ── */
+.error-banner {
+    background: rgba(255, 80, 80, 0.15);
+    color: #ff6b6b;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    border: 1px solid rgba(255, 80, 80, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Status Badges
+   ═══════════════════════════════════════════════════════════════════ */
+
+.badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.badge-open {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--info);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.badge-pending {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-labeled {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--success);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.badge-closed {
+    background: rgba(156, 163, 175, 0.15);
+    color: var(--text-muted);
+    border: 1px solid rgba(156, 163, 175, 0.3);
+}
+
+.badge-unknown {
+    background: rgba(156, 163, 175, 0.1);
+    color: var(--text-muted);
+    border: 1px solid rgba(156, 163, 175, 0.2);
+}
+
+/* ── Batch Link ── */
+.batch-link {
+    text-decoration: none;
+}
+
+.batch-link:hover code {
+    text-decoration: underline;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Batch Detail Page
+   ═══════════════════════════════════════════════════════════════════ */
+
+.batch-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.batch-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.batch-title h2 {
+    font-size: 1.5rem;
+}
+
+.batch-title code {
+    color: var(--primary-light);
+}
+
+/* ── Meta Cards ── */
+.batch-meta-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 2rem;
+}
+
+.meta-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+}
+
+.meta-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 0.35rem;
+}
+
+.meta-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.meta-value.meta-model {
+    font-size: 0.8rem;
+    font-weight: 400;
+    word-break: break-all;
+    color: var(--text-muted);
+}
+
+/* ── Section Title ── */
+.section-title {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    color: var(--text);
+}
+
+/* ── Image Grid ── */
+.image-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 2rem;
+}
+
+.image-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.image-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--primary);
+}
+
+.image-card img {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    display: block;
+}
+
+.image-name {
+    padding: 6px 8px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Download All Button (reused in detail) ── */
+.btn-download-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    background: #6C63FF;
+    color: #fff;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.btn-download-all:hover {
+    background: #5a52e0;
 }

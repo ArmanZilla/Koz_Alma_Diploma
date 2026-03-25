@@ -3,7 +3,7 @@ KozAlma AI — Notification Service.
 
 Sends OTP codes via configured channels:
   • Email (SMTP/STARTTLS) — Gmail App Password compatible
-  • WhatsApp — stub (logs only)
+  • WhatsApp — via Twilio API (sandbox or business number)
   • Dev mode — prints OTP to console (OTP_DEV_MODE=true)
 """
 
@@ -37,7 +37,10 @@ async def send_otp(channel: str, identifier: str, code: str) -> bool:
 
     if channel == "email":
         return _send_email(identifier, code)
+    elif channel == "whatsapp":
+        return _send_whatsapp(identifier, code)
     elif channel == "phone":
+        # Legacy "phone" channel → route to WhatsApp
         return _send_whatsapp(identifier, code)
     else:
         logger.error("Unknown OTP channel: %s", channel)
@@ -125,9 +128,74 @@ def _send_email(to_email: str, code: str) -> bool:
 
 
 def _send_whatsapp(phone: str, code: str) -> bool:
-    """Send OTP via WhatsApp (stub — logs only).
+    """Send OTP via Twilio WhatsApp API.
 
-    Replace with Twilio/WhatsApp Business API when ready.
+    Supports both Twilio Sandbox and Business numbers.
+
+    NOTE — Twilio Sandbox:
+      Before receiving messages, the user must first send:
+          join <your-sandbox-keyword>
+      to the sandbox number (e.g. +1 415 523 8886) from their WhatsApp.
+      This is a Twilio sandbox requirement, not a KozAlma limitation.
+
+    Args:
+        phone: Phone number, e.g. "+77789826080" or "whatsapp:+77789826080"
+        code:  6-digit OTP code (NOT logged in production)
     """
-    logger.info("[STUB] WhatsApp OTP 'sent' to %s****", phone[:4])
-    return True
+    settings = get_settings()
+
+    # ── Validate Twilio credentials ──
+    if not settings.twilio_account_sid or not settings.twilio_auth_token:
+        logger.error(
+            "❌ Twilio not configured (TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN empty) "
+            "— cannot send WhatsApp OTP"
+        )
+        return False
+
+    # ── Normalize identifier to whatsapp: format ──
+    to_number = phone.strip()
+    if not to_number.startswith("whatsapp:"):
+        to_number = f"whatsapp:{to_number}"
+
+    from_number = settings.twilio_whatsapp_from.strip()
+    if not from_number.startswith("whatsapp:"):
+        from_number = f"whatsapp:{from_number}"
+
+    # ── Send via Twilio ──
+    try:
+        from twilio.rest import Client
+        from twilio.base.exceptions import TwilioRestException
+
+        client = Client(settings.twilio_account_sid, settings.twilio_auth_token)
+
+        ttl_min = settings.otp_ttl_seconds // 60
+        message = client.messages.create(
+            body=(
+                f"KozAlma AI — ваш код подтверждения: {code}\n"
+                f"Код действителен {ttl_min} минут.\n"
+                f"Не сообщайте код никому."
+            ),
+            from_=from_number,
+            to=to_number,
+        )
+
+        # Log success (SID only, never the code)
+        logger.info(
+            "✅ WhatsApp OTP sent to %s**** (SID: %s)",
+            phone[:4], message.sid
+        )
+        return True
+
+    except ImportError:
+        logger.error(
+            "❌ 'twilio' package not installed — run: pip install twilio"
+        )
+        return False
+    except Exception as exc:
+        # Catch TwilioRestException and any other errors
+        # Log error but NOT the code — prevent leakage
+        logger.error(
+            "❌ WhatsApp OTP failed for %s****: %s",
+            phone[:4], exc
+        )
+        return False

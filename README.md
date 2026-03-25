@@ -57,6 +57,12 @@ Admin panel: http://localhost:8000/admin/login
 cd frontend
 flutter pub get
 flutter run
+ docker exec -it redis redis-cli ping 
+
+
+ docker start redis
+
+
 ```
 
 > **Note:** Set `AppConstants.apiBaseUrl` in `lib/core/constants.dart` to your backend URL.  

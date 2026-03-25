@@ -1,40 +1,40 @@
-"""YOLOv8 training script (Ultralytics).
-
-1) Prepare splits:
-python split_dataset.py --data-root ../../data
-
-2) Update configs/data.yaml.template -> configs/data.yaml
-
-3) Train:
-python train_yolo.py --data configs/data.yaml --model yolov8n.pt --epochs 50 --imgsz 640 --batch 8
-
-Outputs:
-- backend/runs/detect/train*/weights/best.pt
-"""
-
 import argparse
 from ultralytics import YOLO
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data", type=str, required=True)
+    ap.add_argument("--data", type=str, required=False)
     ap.add_argument("--model", type=str, default="yolov8n.pt")
-    ap.add_argument("--epochs", type=int, default=50)
-    ap.add_argument("--imgsz", type=int, default=640)
-    ap.add_argument("--batch", type=int, default=8)
+    ap.add_argument("--epochs", type=int, default=30)
+    ap.add_argument("--imgsz", type=int, default=512)
+    ap.add_argument("--batch", type=int, default=4)
     ap.add_argument("--project", type=str, default="../runs")
     ap.add_argument("--name", type=str, default="detect")
+    ap.add_argument("--resume", action="store_true")
+    ap.add_argument("--checkpoint", type=str, default="")
     args = ap.parse_args()
 
-    model = YOLO(args.model)
-    model.train(
-        data=args.data,
-        epochs=args.epochs,
-        imgsz=args.imgsz,
-        batch=args.batch,
-        project=args.project,
-        name=args.name,
-    )
+    if args.resume:
+        if not args.checkpoint:
+            raise ValueError("For resume mode, provide --checkpoint path to last.pt")
+        model = YOLO(args.checkpoint)
+        model.train(resume=True)
+    else:
+        if not args.data:
+            raise ValueError("For new training, provide --data path")
+        model = YOLO(args.model)
+        model.train(
+            data=args.data,
+            epochs=args.epochs,
+            imgsz=args.imgsz,
+            batch=args.batch,
+            project=args.project,
+            name=args.name,
+            save=True,
+            save_period=1,
+            exist_ok=True,
+            workers=2,
+        )
 
 if __name__ == "__main__":
     main()

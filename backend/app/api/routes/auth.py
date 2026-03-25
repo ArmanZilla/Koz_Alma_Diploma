@@ -38,7 +38,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # ────────────────────────────────────────────────────────────────────
 
 class RequestCodeBody(BaseModel):
-    channel: str = Field(..., pattern="^(email|phone)$")
+    channel: str = Field(..., pattern="^(email|phone|whatsapp)$")
     identifier: str = Field(..., min_length=3, max_length=320)
 
 
@@ -48,7 +48,7 @@ class RequestCodeResponse(BaseModel):
 
 
 class VerifyCodeBody(BaseModel):
-    channel: str = Field(..., pattern="^(email|phone)$")
+    channel: str = Field(..., pattern="^(email|phone|whatsapp)$")
     identifier: str = Field(..., min_length=3, max_length=320)
     code: str = Field(..., min_length=6, max_length=6)
 

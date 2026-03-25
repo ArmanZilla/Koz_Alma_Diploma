@@ -92,6 +92,20 @@ async def lifespan(app: FastAPI):
             bucket_ok = s3.validate_bucket()
             if bucket_ok:
                 unknown_manager = UnknownManager(s3)
+
+                # Inject auto-label service if enabled
+                if settings.auto_label_enabled:
+                    from app.services.auto_label_service import AutoLabelService
+                    auto_label_svc = AutoLabelService(
+                        s3=s3,
+                        detector=detector,
+                        min_conf=settings.auto_label_min_conf,
+                    )
+                    unknown_manager.set_auto_label_service(auto_label_svc)
+                    logger.info("Auto-label pipeline enabled (min_conf=%.2f)", settings.auto_label_min_conf)
+                else:
+                    logger.info("Auto-label pipeline disabled by config")
+
                 logger.info("S3 unknown manager enabled (bucket=%s)", settings.s3_bucket)
             else:
                 logger.warning(
