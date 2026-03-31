@@ -3,12 +3,12 @@ train: ../train/images
 val: ../val/images
 test: ../test/images
 
-nc: 39
-names: ['door', 'person', 'trash_bin', 'bag', 'bed', 'bench', 'bicycle', 'book', 'bottle', 'bus', 'bus_stop', 'car', 'chair', 'child', 'closet', 'construction_fence', 'corridor', 'crosswalk', 'curb', 'elevator', 'entrance', 'glass_wall', 'hole', 'laptop', 'people', 'phone', 'pole', 'ramp', 'road', 'shelf', 'sidewalk', 'sofa', 'stairs', 'steps_down', 'stroller', 'table', 'traffic_light', 'wet_floor', 'wheelchair']
+nc: 29
+names: ['bag', 'bed', 'bench', 'bicycle', 'book', 'bottle', 'bus_stop', 'car', 'chair', 'closet', 'construction_fence', 'corridor', 'crosswalk', 'door', 'elevator', 'hole', 'laptop', 'person', 'phone', 'pole', 'ramp', 'road', 'sofa', 'stairs', 'stroller', 'table', 'traffic_light', 'trash_bin', 'wheelchair']
 
 roboflow:
-  workspace: yolov1-gc7rb
-  project: yolo_v1-flelj
-  version: 2
-  license: CC BY 4.0
-  url: https://universe.roboflow.com/yolov1-gc7rb/yolo_v1-flelj/dataset/2
+  workspace: armans-workspace-nbegr
+  project: yolo-64zqi
+  version: 3
+  license: Private
+  url: https://app.roboflow.com/armans-workspace-nbegr/yolo-64zqi/3

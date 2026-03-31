@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 29
+names: ['bag', 'bed', 'bench', 'bicycle', 'book', 'bottle', 'bus_stop', 'car', 'chair', 'closet', 'construction_fence', 'corridor', 'crosswalk', 'door', 'elevator', 'hole', 'laptop', 'person', 'phone', 'pole', 'ramp', 'road', 'sofa', 'stairs', 'stroller', 'table', 'traffic_light', 'trash_bin', 'wheelchair']
+
+roboflow:
+  workspace: armans-workspace-nbegr
+  project: yolo-64zqi
+  version: 3
+  license: Private
+  url: https://app.roboflow.com/armans-workspace-nbegr/yolo-64zqi/3
