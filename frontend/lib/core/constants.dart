@@ -4,6 +4,10 @@
 ///   - Web (Chrome): http://localhost:8000
 ///   - Android emulator: http://10.0.2.2:8000
 ///   - Physical device / iOS / desktop: http://localhost:8000
+///
+/// Override at build time:
+///   flutter run --dart-define=API_URL=http://192.168.100.152:8000
+///   flutter build apk --dart-define=API_URL=https://api.kozalma.kz
 library;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -12,15 +16,21 @@ import 'platform_util.dart';
 class AppConstants {
   AppConstants._();
 
+  /// Build-time API URL override via --dart-define.
+  static const String _customUrl = String.fromEnvironment('API_URL');
+
   /// Backend API base URL — auto-selected by platform.
+  /// Override with --dart-define=API_URL=http://your-server:8000
   static String get apiBaseUrl {
+    if (_customUrl.isNotEmpty) return _customUrl;
+
     if (kIsWeb) {
-      return 'http://192.168.100.152:8000';//'http://localhost:8000'; //Mobile version
+      return 'http://localhost:8000';
     }
     if (isAndroid()) {
-      return  'http://192.168.100.152:8000'; // 'http://localhost:8000';  //'http://192.168.100.152:8000'; //'http://localhost:8000';  //'http://192.168.100.152:8000'; 'http://localhost:8000';//; //Mobile version
+      return 'http://10.0.2.2:8000';
     }
-    return 'http://192.168.100.152:8000'; //'http://localhost:8000';//'http://192.168.100.152:8000'; //'http://192.168.100.152:8000'; //'http://localhost:8000';  //'http://192.168.100.152:8000'; //'http://localhost:8000';//'http://192.168.100.152:8000'; //Mobile version
+    return 'http://localhost:8000';
   }
 
   /// Supported languages.

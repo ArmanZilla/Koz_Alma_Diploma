@@ -17,6 +17,11 @@ venv/
 *.onnx
 *.tflite
 
+# Database (runtime state — never version)
+*.db
+*.sqlite
+*.sqlite3
+
 # IDE
 .idea/
 .vscode/
@@ -41,6 +46,17 @@ frontend/.pub-cache/
 # Jupyter
 .ipynb_checkpoints/
 
-# Output
+# Output / Build artifacts
 backend/scripts/output/
 runs/
+build_log.txt
+*.log
+
+# Large data artifacts (keep splits/.gitkeep for structure)
+data/raw/
+data/annotated/
+data/calib_images/
+data/analysis_outputs/
+
+# Alembic generated
+backend/alembic/versions/__pycache__/

@@ -1,114 +1,202 @@
 # KozAlma AI
 
-**Visual assistant for visually impaired users** — detects objects via camera, estimates distance using depth (MiDaS), generates RU/KZ speech, and collects unknown images for future labeling.
+**Visual assistant for visually impaired users** — detects objects via camera, estimates distance using depth (MiDaS), generates bilingual RU/KZ speech (Piper TTS + gTTS), and actively learns from unknown images.
 
 ## Architecture
 
 ```
-koz_alma_ai/
-├── backend/             # FastAPI + ML pipeline
-│   ├── app/
-│   │   ├── main.py          # App entry point
-│   │   ├── config.py        # Settings (pydantic-settings)
-│   │   ├── ml/              # YOLOv8 detector + MiDaS depth
-│   │   ├── tts/             # TTS engines (gTTS + ESPnet Kazakh)
-│   │   ├── storage/         # S3 unknown image manager
-│   │   ├── api/routes/      # /scan, /unknown endpoints
-│   │   └── admin_web/       # Admin panel (Jinja2)
-│   ├── scripts/             # train_yolo, eval_yolo, data_checks
-│   └── requirements.txt
-├── frontend/            # Flutter (Android + iOS)
-│   └── lib/
-│       ├── core/            # accessibility, app_state, constants
-│       ├── screens/         # welcome, camera, result, settings
-│       ├── widgets/         # accessible_button, language_toggle
-│       └── services/        # api, tts, camera
-├── data/                # Dataset (data.yaml, splits)
-├── experiments/         # Jupyter notebooks
-└── docs/                # Documentation
+┌──────────────────────────────────────────────────────────────┐
+│                    Flutter Mobile / Web App                    │
+│  ┌─────────┐  ┌──────────┐  ┌─────────┐  ┌───────────┐     │
+│  │ Welcome  │→ │  Camera   │→ │ Result  │  │ Settings  │     │
+│  │ Screen   │  │  Screen   │  │ Screen  │  │  Screen   │     │
+│  └─────────┘  └────┬─────┘  └─────────┘  └───────────┘     │
+│              POST /scan │                                     │
+└──────────────────────┼───────────────────────────────────────┘
+                       │
+┌──────────────────────┼───────────────────────────────────────┐
+│              FastAPI Backend                                  │
+│  ┌───────────────────┼───────────────────────────────┐       │
+│  │            Scan Pipeline                           │       │
+│  │  YOLOv8 ─→ MiDaS Depth ─→ Text Builder ─→ TTS   │       │
+│  └───────────────────────────────────────────────────┘       │
+│                                                               │
+│  ┌───────────┐  ┌───────────┐  ┌────────────┐               │
+│  │ OTP Auth  │  │ S3 Unknown│  │ Admin Panel│               │
+│  │ (Redis)   │  │ Manager   │  │ (Jinja2)   │               │
+│  └───────────┘  └───────────┘  └────────────┘               │
+└──────────────────────────────────────────────────────────────┘
 ```
+
+## Technology Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Backend** | Python 3.11, FastAPI, Uvicorn |
+| **ML Detection** | YOLOv8 (Ultralytics), custom 39-class model |
+| **Depth Estimation** | MiDaS (Intel ISL) |
+| **TTS — Russian** | gTTS (Google Translate TTS) |
+| **TTS — Kazakh** | Piper TTS (offline ONNX model) |
+| **Auth** | Passwordless OTP (email/WhatsApp/phone) |
+| **Session** | Redis + JWT (HS256) |
+| **Database** | SQLite (dev) / PostgreSQL (prod) via SQLAlchemy |
+| **Object Storage** | Yandex Object Storage (S3-compatible) |
+| **Frontend** | Flutter (Android + Web + iOS) |
+| **Infrastructure** | Docker, Docker Compose |
+
+## ML Model
+
+- **Architecture:** YOLOv8 (custom-trained)
+- **Classes:** 39 (see `data/data.yaml`)
+- **Training data:** 3,000 labeled images
+- **Training:** 60 epochs, imgsz=640
+- **Split:** 80% train / 10% val / 10% test
+- **Depth:** MiDaS Small with linear calibration
 
 ## Quick Start
 
-### Backend
+### Prerequisites
+
+- Python 3.11+
+- Redis (for auth/OTP)
+- YOLOv8 weights file (`weights/best.pt`)
+- (Optional) Piper TTS model for Kazakh
+
+### Backend — Local Development
 
 ```bash
 cd backend
 python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS/Linux
- docker start redis
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+# source venv/bin/activate
 
-
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
 
 # Copy and configure .env
 cp ../.env.example .env
-# Edit .env: set S3 keys, ADMIN_PASSWORD, YOLO_WEIGHTS_PATH
+# Edit .env: set S3 keys, passwords, secrets
+
+# Start Redis (requires Docker)
+docker run -d --name redis -p 6379:6379 redis:7-alpine
+
+# Initialize database (auto-creates on first run)
+# Or use Alembic:
+# alembic upgrade head
 
 # Run server
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-API docs: http://localhost:8000/docs  
+API docs: http://localhost:8000/docs
 Admin panel: http://localhost:8000/admin/login
+
+### Backend — Docker
+
+```bash
+# 1. Configure
+cp .env.example backend/.env
+# Edit backend/.env with real values
+# Set REDIS_URL=redis://redis:6379/0
+
+# 2. Place model weights
+# Put your best.pt in backend/weights/
+# Put Piper models in backend/models/ (optional)
+
+# 3. Build and run
+docker compose up -d --build
+
+# 4. Verify
+curl http://localhost:8000/health
+curl http://localhost:8000/readiness
+```
 
 ### Frontend (Flutter)
 
 ```bash
 cd frontend
 flutter pub get
+
+# For emulator (auto-detects backend URL):
 flutter run
- docker exec -it redis redis-cli ping 
 
+# For physical device (specify your backend IP):
+flutter run --dart-define=API_URL=http://YOUR_SERVER_IP:8000
 
-
-
+# Build APK:
+flutter build apk --dart-define=API_URL=https://api.kozalma.kz
 ```
 
-> **Note:** Set `AppConstants.apiBaseUrl` in `lib/core/constants.dart` to your backend URL.  
-> For Android emulator: `http://10.0.2.2:8000`
+> **Note:** The frontend is a Flutter app (Android/Web/iOS).
+> It is NOT a containerized service — build and deploy it separately.
 
-### ML Training
+## Environment Variables
 
-```bash
-cd backend
-python scripts/train_yolo.py --epochs 100 --imgsz 640 --batch 16
-python scripts/eval_yolo.py --weights runs/detect/koz_alma_train/weights/best.pt
-python scripts/data_checks.py --data ../data/data.yaml
-```
+See `.env.example` for the complete list with descriptions.
 
-## Environment Variables (.env)
+Key variables:
 
-| Variable | Description |
-|---|---|
-| `S3_ACCESS_KEY` | Yandex Object Storage access key |
-| `S3_SECRET_KEY` | Yandex Object Storage secret key |
-| `S3_BUCKET` | S3 bucket name |
-| `S3_ENDPOINT` | S3 endpoint URL |
-| `ADMIN_PASSWORD` | Admin panel password |
-| `YOLO_WEIGHTS_PATH` | Path to YOLOv8 weights (best.pt) |
-| `MIDAS_MODEL` | MiDaS model variant (default: MiDaS_small) |
-| `KZ_TTS_ENABLED` | Enable Kazakh TTS via Edge TTS (`true`/`false`, default: `false`) |
-| `KZ_TTS_VOICE` | Edge TTS voice (default: `kk-KZ-AigulNeural`) |
+| Variable | Description | Required |
+|---|---|---|
+| `ENVIRONMENT` | `dev` / `staging` / `prod` | No (default: dev) |
+| `ALLOWED_ORIGINS` | CORS origins (comma-separated) | Prod only |
+| `S3_ACCESS_KEY` | Yandex Object Storage access key | For S3 features |
+| `S3_SECRET_KEY` | Yandex Object Storage secret key | For S3 features |
+| `ADMIN_PASSWORD` | Admin panel password | Yes |
+| `JWT_SECRET_KEY` | JWT signing secret | Yes (change default!) |
+| `OTP_HMAC_SECRET` | OTP hashing secret | Yes (change default!) |
+| `REDIS_URL` | Redis connection URL | For auth features |
+| `DATABASE_URL` | Database URL (SQLite or PostgreSQL) | No (default: SQLite) |
+| `YOLO_WEIGHTS_PATH` | Path to YOLOv8 weights | Yes |
+| `KZ_TTS_ENABLED` | Enable Piper Kazakh TTS | No (default: false) |
 
 ## API Endpoints
 
+### Core API (`/api/v1/...` or legacy `/...`)
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| `POST` | `/scan` | Scan image → detections + TTS | Optional |
+| `POST` | `/tts/speak` | Text-to-speech synthesis | No |
+| `POST` | `/auth/request-code` | Send OTP code | No |
+| `POST` | `/auth/verify-code` | Verify OTP → JWT tokens | No |
+| `POST` | `/auth/refresh` | Refresh JWT tokens | No |
+| `GET` | `/auth/me` | Current user profile | JWT |
+| `GET` | `/unknown/groups` | List unknown image groups | No |
+| `POST` | `/unknown/upload` | Upload unknown image | JWT |
+
+### System
+
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/scan` | Scan image → detections + TTS audio |
-| `GET` | `/unknown/groups` | List unknown image groups |
-| `GET` | `/unknown/groups/{id}/images` | List images in a group |
-| `GET` | `/unknown/groups/{id}/download` | Download group as ZIP |
-| `GET` | `/admin` | Admin dashboard |
-| `GET` | `/health` | Health check |
+| `GET` | `/health` | Liveness probe |
+| `GET` | `/readiness` | Readiness probe (checks deps) |
+| `GET` | `/admin/login` | Admin panel login |
 
-## Dataset
+## Kazakh TTS (Piper — Offline)
 
-- Format: YOLO (txt labels)
-- Classes: 39 (see `data/data.yaml`)
-- Current: 171 labeled images, target ~3000
-- Split: 80% train / 10% val / 10% test
+The backend uses **Piper TTS** for high-quality offline Kazakh speech synthesis:
+
+| Language | Engine | Output | Internet Required |
+|----------|--------|--------|-------------------|
+| Russian (`ru`) | gTTS (Google) | MP3 | Yes |
+| Kazakh (`kz`) | Piper TTS (local) | WAV | No |
+
+### Setup Piper TTS
+
+```bash
+# 1. Download model
+# From: https://huggingface.co/rhasspy/piper-voices
+# Place in backend/models/:
+#   kk_KZ-issai-high.onnx
+#   kk_KZ-issai-high.onnx.json
+
+# 2. Enable in .env
+KZ_TTS_ENABLED=true
+
+# 3. Restart backend
+```
 
 ## Accessibility (Flutter)
 
@@ -118,37 +206,45 @@ python scripts/data_checks.py --data ../data/data.yaml
 - **Speed control**: left/right edge zones on camera screen
 - **Auto flashlight**: enables when low light detected
 
-## Kazakh TTS (Hybrid Architecture)
+## Production Deployment Checklist
 
-The backend uses a **hybrid TTS** approach:
+- [ ] Set `ENVIRONMENT=prod` in `.env`
+- [ ] Generate and set strong values for:
+  - `JWT_SECRET_KEY` (`python -c "import secrets; print(secrets.token_hex(32))"`)
+  - `OTP_HMAC_SECRET`
+  - `ADMIN_PASSWORD`
+  - `ADMIN_SESSION_SECRET`
+- [ ] Set `OTP_DEV_MODE=false`
+- [ ] Set `ALLOWED_ORIGINS` to your actual frontend domains
+- [ ] Set `LOG_JSON=true` for structured logging
+- [ ] Set `LOG_LEVEL=WARNING` to reduce log volume
+- [ ] Configure `DATABASE_URL` for PostgreSQL
+- [ ] Configure `REDIS_URL` pointing to production Redis
+- [ ] Place ML weights in `backend/weights/best.pt`
+- [ ] (Optional) Place Piper models and set `KZ_TTS_ENABLED=true`
+- [ ] Configure S3 credentials for unknown image storage
+- [ ] Configure SMTP or Twilio for OTP delivery
+- [ ] Build Flutter app with production API URL
+- [ ] Set up TLS/HTTPS termination (reverse proxy)
+- [ ] Set up log aggregation
+- [ ] Test all endpoints via `/readiness`
 
-| Language | Engine | Output | Requires Internet |
-|----------|--------|--------|-------------------|
-| Russian (`ru`) | gTTS (Google) | MP3 | Yes |
-| Kazakh (`kz`) | Edge TTS (Microsoft) | MP3 | Yes |
+## Database Migrations
 
-**How it works:** The `TTSEngine` dispatcher routes `lang="kz"` to the Edge TTS-based `KazakhTTSEngine` and `lang="ru"` to gTTS. If the Kazakh engine fails or is not installed, it falls back to gTTS automatically.
-
-### Enabling Kazakh TTS
+Using Alembic for schema management:
 
 ```bash
-# 1. Install edge-tts (lightweight, ~50 KB)
-pip install edge-tts
+cd backend
 
-# 2. Enable in .env
-KZ_TTS_ENABLED=true
-KZ_TTS_VOICE=kk-KZ-AigulNeural   # or kk-KZ-DauletNeural (male)
+# Generate a new migration after changing models
+alembic revision --autogenerate -m "description"
 
-# 3. Restart backend
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Apply migrations
+alembic upgrade head
+
+# Rollback one migration
+alembic downgrade -1
 ```
-
-### Performance Notes
-
-- **Latency:** ~1–2 seconds per sentence (neural TTS via Microsoft)
-- **No model download:** No large models to cache — requests go to Microsoft's API
-- **Voices:** `kk-KZ-AigulNeural` (female) or `kk-KZ-DauletNeural` (male)
-- **Numbers:** Automatically expanded to Kazakh words (e.g., "1.5 метр" → "бір бүтін бес метр")
 
 ## License
 

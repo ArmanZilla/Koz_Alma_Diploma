@@ -15,6 +15,8 @@ from fastapi.responses import Response
 
 from app.api.schemas import UnknownGroupItem, UnknownImageItem
 from app.auth.jwt_utils import get_current_user, get_optional_user
+from app.config import get_settings
+from app.middleware import check_rate_limit, get_client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +25,17 @@ router = APIRouter(prefix="/unknown", tags=["unknown"])
 
 @router.get("/groups", response_model=List[UnknownGroupItem])
 async def list_groups(request: Request) -> List[UnknownGroupItem]:
-    """List all unknown image groups (public for admin dashboard)."""
+    """List all unknown image groups.
+
+    Accessible without auth for admin dashboard backward compatibility.
+    In non-dev environments, unauthenticated access is logged.
+    """
+    settings = get_settings()
+    if not settings.is_development:
+        logger.info(
+            "Unauthenticated /unknown/groups access from %s",
+            get_client_ip(request),
+        )
     mgr = request.app.state.unknown_manager
     if mgr is None:
         return []

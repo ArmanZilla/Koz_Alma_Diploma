@@ -1,6 +1,23 @@
-version: "3.9"
+# ──────────────────────────────────────────────────────────────────────
+# KozAlma AI — Docker Compose (Full Stack)
+#
+# Services:
+#   - backend: FastAPI + ML pipeline
+#   - redis: Session/OTP storage
+#
+# NOTE: Frontend is a Flutter mobile/web app — it is NOT deployed
+# as a Docker container.  Build it with `flutter build apk` or
+# `flutter build web` and deploy separately.
+#
+# Quick start:
+#   cp .env.example backend/.env
+#   # Edit backend/.env with real values
+#   docker compose up -d --build
+#   curl http://localhost:8000/health
+# ──────────────────────────────────────────────────────────────────────
 
 services:
+  # ── Redis ──────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: kozalma-redis
@@ -16,5 +33,36 @@ services:
       timeout: 3s
       retries: 5
 
+  # ── Backend (FastAPI + ML) ─────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kozalma-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    volumes:
+      # ML model weights (must be provided before first run)
+      - ./backend/weights:/app/weights:ro
+      # Piper TTS models
+      - ./backend/models:/app/models:ro
+      # SQLite database (dev only — use PostgreSQL in prod)
+      - backend-db:/app/data
+      # Calibration and assets
+      - ./backend/app/assets:/app/app/assets:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+
 volumes:
   redis-data:
+  backend-db:

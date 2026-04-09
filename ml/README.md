@@ -1,29 +1,69 @@
-# ML (training / evaluation / analysis)
+# ML — Training / Evaluation / Analysis
 
-Scripts:
-- split_dataset.py — split YOLO dataset 80/10/10
-- train_yolo.py — train YOLOv8
-- eval_yolo.py — evaluate on test split
-- data_mining_basic.py — basic analytics plots
-- calibrate_depth.py — fit MiDaS depth -> meters
+## Current Model
+
+- **Architecture:** YOLOv8 (custom-trained)
+- **Classes:** 39 (see `data/data.yaml`)
+- **Training data:** 3,000 labeled images
+- **Training:** 60 epochs, imgsz=640
+- **Split:** 80% train / 10% val / 10% test
+
+## Scripts
+
+Located in `backend/scripts/`:
+
+| Script | Description |
+|--------|-------------|
+| `train_yolo.py` | Train YOLOv8 on labeled dataset |
+| `eval_yolo.py` | Evaluate model on test split |
+| `data_checks.py` | Data analytics + visualizations |
 
 ## Workflow
-1) Put labeled data:
-- data/annotated/images
-- data/annotated/labels
 
-2) Split:
-python backend/ml/scripts/split_dataset.py --data-root data
+### 1. Prepare labeled data
 
-3) Config:
-copy backend/ml/configs/data.yaml.template -> backend/ml/configs/data.yaml and edit names.
+Place labeled images in YOLO format:
+```
+data/annotated/images/   — .jpg files
+data/annotated/labels/   — .txt label files
+```
 
-4) Train:
-python backend/ml/scripts/train_yolo.py --data backend/ml/configs/data.yaml --epochs 50 --imgsz 640 --batch 8
+### 2. Split dataset
 
-5) Connect weights:
-Edit backend/app/ml/detector.py weights_path -> your best.pt
+```bash
+python backend/scripts/data_checks.py --data ../data/data.yaml
+```
 
-6) Calibrate:
-Create data/calib_images + data/calib.csv then:
-python backend/ml/scripts/calibrate_depth.py --images data/calib_images --csv data/calib.csv --weights yolov8n.pt
+### 3. Train
+
+```bash
+cd backend
+python scripts/train_yolo.py --epochs 60 --imgsz 640 --batch 16
+```
+
+### 4. Evaluate
+
+```bash
+python scripts/eval_yolo.py --weights runs/detect/koz_alma_train/weights/best.pt
+```
+
+### 5. Deploy weights
+
+Copy `best.pt` to `backend/weights/best.pt` and set in `.env`:
+```
+YOLO_WEIGHTS_PATH=weights/best.pt
+```
+
+### 6. Calibrate depth
+
+```bash
+python scripts/calibrate_depth.py --images data/calib_images --csv data/calib.csv
+```
+
+Result is saved to `backend/app/assets/calibration.json`.
+
+## Configs
+
+- `ml/configs/data.yaml.template` — YOLO dataset config template
+- `backend/app/assets/calibration.json` — MiDaS depth calibration
+- `backend/app/assets/class_dict.json` — Class name translations (RU/KZ)

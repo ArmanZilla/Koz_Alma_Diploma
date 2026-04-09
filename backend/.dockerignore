@@ -1,0 +1,9 @@
+# See: https://docs.docker.com/reference/build-checks/
+**/venv
+**/.venv
+**/__pycache__
+**/.git
+**/.gitignore
+*.md
+tests/
+scripts/

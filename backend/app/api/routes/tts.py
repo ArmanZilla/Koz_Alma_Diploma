@@ -21,6 +21,9 @@ from collections import OrderedDict
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
+from app.config import get_settings
+from app.middleware import check_rate_limit
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/tts", tags=["tts"])
@@ -51,6 +54,14 @@ async def speak(req: SpeakRequest, request: Request):
     Short phrases (< 200 chars) are cached in memory so that
     repeated UI speech (buttons, greetings) returns instantly.
     """
+    # ── Rate limiting ──
+    settings = get_settings()
+    rl_response = check_rate_limit(
+        request, "tts", settings.rate_limit_tts, settings.rate_limit_enabled,
+    )
+    if rl_response:
+        return rl_response
+
     key = _cache_key(req.text, req.lang, req.speed)
 
     # ── Cache hit → instant return ────────────────────────────────

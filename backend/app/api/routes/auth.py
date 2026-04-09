@@ -24,6 +24,7 @@ from app.auth.jwt_utils import (
 )
 from app.config import get_settings
 from app.db.session import get_session_factory
+from app.middleware import check_rate_limit
 from app.models.user import get_or_create_user
 from app.services import notify_service
 from app.services import otp_service
@@ -94,8 +95,15 @@ async def request_code(body: RequestCodeBody, request: Request):
 
     Always returns ok=true to prevent user enumeration.
     """
-    redis = _get_redis(request)
+    # ── Rate limiting ──
     settings = get_settings()
+    rl_response = check_rate_limit(
+        request, "otp", settings.rate_limit_otp, settings.rate_limit_enabled,
+    )
+    if rl_response:
+        return rl_response
+
+    redis = _get_redis(request)
     identifier = body.identifier.strip()
 
     # Check cooldown
@@ -125,8 +133,15 @@ async def verify_code(body: VerifyCodeBody, request: Request):
 
     Auto-creates user on first successful verification (login == signup).
     """
-    redis = _get_redis(request)
+    # ── Rate limiting ──
     settings = get_settings()
+    rl_response = check_rate_limit(
+        request, "auth", settings.rate_limit_auth, settings.rate_limit_enabled,
+    )
+    if rl_response:
+        return rl_response
+
+    redis = _get_redis(request)
     identifier = body.identifier.strip()
 
     # Verify OTP
