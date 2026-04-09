@@ -6,14 +6,8 @@
 #   - redis: Session/OTP storage
 #
 # NOTE: Frontend is a Flutter mobile/web app — it is NOT deployed
-# as a Docker container.  Build it with `flutter build apk` or
+# as a Docker container. Build it with `flutter build apk` or
 # `flutter build web` and deploy separately.
-#
-# Quick start:
-#   cp .env.example backend/.env
-#   # Edit backend/.env with real values
-#   docker compose up -d --build
-#   curl http://localhost:8000/health
 # ──────────────────────────────────────────────────────────────────────
 
 services:
@@ -28,7 +22,7 @@ services:
     command: redis-server --save 60 1 --loglevel warning
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -44,20 +38,20 @@ services:
     env_file:
       - ./backend/.env
     volumes:
-      # ML model weights (must be provided before first run)
+      # ML model weights
       - ./backend/weights:/app/weights:ro
       # Piper TTS models
       - ./backend/models:/app/models:ro
-      # SQLite database (dev only — use PostgreSQL in prod)
+      # SQLite database
       - backend-db:/app/data
-      # Calibration and assets
-      - ./backend/app/assets:/app/app/assets:ro
+      # Whole backend app source code (DEV mode: no rebuild for Python changes)
+      - ./backend/app:/app/app
     depends_on:
       redis:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
       interval: 30s
       timeout: 5s
       start_period: 60s

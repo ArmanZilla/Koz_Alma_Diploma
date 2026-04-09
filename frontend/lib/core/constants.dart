@@ -2,15 +2,16 @@
 ///
 /// Platform-aware API URL selection:
 ///   - Web (Chrome): http://localhost:8000
-///   - Android emulator: http://10.0.2.2:8000
-///   - Physical device / iOS / desktop: http://localhost:8000
+///   - Android emulator: http://10.0.2.2:8000  (default for Android)
+///   - Physical device: MUST use --dart-define=API_URL=http://<LAN_IP>:8000
+///   - iOS / desktop: http://localhost:8000
 ///
-/// Override at build time:
+/// Override at build time (REQUIRED for real devices):
 ///   flutter run --dart-define=API_URL=http://192.168.100.152:8000
 ///   flutter build apk --dart-define=API_URL=https://api.kozalma.kz
 library;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'platform_util.dart';
 
 class AppConstants {
@@ -19,18 +20,51 @@ class AppConstants {
   /// Build-time API URL override via --dart-define.
   static const String _customUrl = String.fromEnvironment('API_URL');
 
-  /// Backend API base URL — auto-selected by platform.
-  /// Override with --dart-define=API_URL=http://your-server:8000
-  static String get apiBaseUrl {
-    if (_customUrl.isNotEmpty) return _customUrl;
+  /// Whether we've already logged the resolved URL.
+  static bool _urlLogged = false;
 
-    if (kIsWeb) {
-      return 'http://localhost:8000';
+  /// Backend API base URL — auto-selected by platform.
+  ///
+  /// Priority:
+  ///   1. --dart-define=API_URL=...  (highest, always wins)
+  ///   2. Web → http://localhost:8000
+  ///   3. Android → http://10.0.2.2:8000  (emulator only!)
+  ///   4. Other → http://localhost:8000
+  ///
+  /// ⚠️  For physical Android devices, you MUST pass:
+  ///   flutter run --dart-define=API_URL=http://<YOUR_LAN_IP>:8000
+  static String get apiBaseUrl {
+    final String url;
+    final String source;
+
+    if (_customUrl.isNotEmpty) {
+      url = _customUrl;
+      source = '--dart-define override';
+    } else if (kIsWeb) {
+      url = 'http://localhost:8000';
+      source = 'web default';
+    } else if (isAndroid()) {
+      url = 'http://10.0.2.2:8000';
+      source = 'android emulator default (use --dart-define=API_URL for real device!)';
+    } else {
+      url = 'http://localhost:8000';
+      source = 'desktop/iOS default';
     }
-    if (isAndroid()) {
-      return 'http://10.0.2.2:8000';
+
+    if (!_urlLogged) {
+      _urlLogged = true;
+      debugPrint('┌─────────────────────────────────────────────');
+      debugPrint('│ API URL: $url');
+      debugPrint('│ Source:  $source');
+      if (_customUrl.isEmpty && isAndroid() && !kIsWeb) {
+        debugPrint('│ ⚠️  Using emulator-only 10.0.2.2 address!');
+        debugPrint('│ ⚠️  For real device run:');
+        debugPrint('│     flutter run --dart-define=API_URL=http://<LAN_IP>:8000');
+      }
+      debugPrint('└─────────────────────────────────────────────');
     }
-    return 'http://localhost:8000';
+
+    return url;
   }
 
   /// Supported languages.

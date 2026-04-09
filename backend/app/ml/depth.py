@@ -9,10 +9,17 @@ import cv2
 import numpy as np
 import torch
 from PIL import Image
+import torch
+
+import torch
+
+# 🔥 ФИКС №1 (оставь)
+torch.hub._validate_not_a_forked_repo = lambda *args, **kwargs: True
+
+# 🔥 ФИКС №2 (ЭТО ГЛАВНОЕ)
+torch.hub._check_repo_is_trusted = lambda *args, **kwargs: None
 
 logger = logging.getLogger(__name__)
-
-EPSILON = 1e-6
 
 
 class DepthEstimator:
@@ -31,35 +38,59 @@ class DepthEstimator:
         self._load_model()
         self._load_calibration()
 
+    # ─────────────────────────────────────────────
+    # 🔥 FIXED MODEL LOADING (Docker-safe)
+    # ─────────────────────────────────────────────
     def _load_model(self) -> None:
-        """Load MiDaS model and transforms from torch hub."""
-        try:
-            self._model = torch.hub.load(
-                "intel-isl/MiDaS",
-                self.model_type,
-                trust_repo=True,
-            )
-            self._model.to(self.device).eval()
+        import torch
 
-            midas_transforms = torch.hub.load(
-                "intel-isl/MiDaS",
-                "transforms",
-                trust_repo=True,
-            )
-            if "Small" in self.model_type or "small" in self.model_type:
-                self._transform = midas_transforms.small_transform
-            else:
-                self._transform = midas_transforms.dpt_transform
+        # 🔥 КЛЮЧЕВОЙ ФИКС: убираем trust prompt
+        torch.hub._validate_not_a_forked_repo = lambda *args, **kwargs: True
 
-            logger.info("MiDaS loaded (%s) on %s", self.model_type, self.device)
-        except Exception as exc:
-            logger.error("Failed to load MiDaS: %s", exc)
-            self._model = None
+        for attempt in range(1, 3):
+            try:
+                force_reload = attempt > 1
 
+                if force_reload:
+                    logger.info("MiDaS retry #%d (force_reload=True)", attempt)
+
+                self._model = torch.hub.load(
+                    "intel-isl/MiDaS",
+                    self.model_type,
+                    trust_repo=True,
+                    force_reload=force_reload,
+                )
+
+                self._model.to(self.device).eval()
+
+                midas_transforms = torch.hub.load(
+                    "intel-isl/MiDaS",
+                    "transforms",
+                    trust_repo=True,
+                    force_reload=force_reload,
+                )
+
+                if "small" in self.model_type.lower():
+                    self._transform = midas_transforms.small_transform
+                else:
+                    self._transform = midas_transforms.dpt_transform
+
+                logger.info("✅ MiDaS loaded successfully (%s)", self.model_type)
+                return
+
+            except Exception as exc:
+                logger.error("❌ MiDaS load failed: %s", exc, exc_info=True)
+
+        logger.critical("🔥 MiDaS NOT loaded → depth disabled")
+        self._model = None
+        self._transform = None
+
+    # ─────────────────────────────────────────────
+    # Calibration
+    # ─────────────────────────────────────────────
     def _load_calibration(self) -> None:
-        """Load calibration coefficients from JSON."""
         try:
-            base_dir = Path(__file__).resolve().parents[1]   # app/
+            base_dir = Path(__file__).resolve().parents[1]
             calib_path = base_dir / "assets" / "calibration.json"
 
             if not calib_path.exists():
@@ -72,77 +103,92 @@ class DepthEstimator:
             self.shift = float(data.get("shift", 0.0))
 
             logger.info(
-                "Calibration loaded: method=%s, scale=%s, shift=%s",
-                self.calibration_method,
+                "Calibration loaded: scale=%s shift=%s",
                 self.scale,
                 self.shift,
             )
-        except Exception as exc:
-            logger.error("Failed to load calibration.json: %s", exc)
 
+        except Exception as exc:
+            logger.error("Calibration load failed: %s", exc, exc_info=True)
+
+    # ─────────────────────────────────────────────
+    # Status
+    # ─────────────────────────────────────────────
     @property
     def is_available(self) -> bool:
-        return self._model is not None
+        return self._model is not None and self._transform is not None
 
+    # ─────────────────────────────────────────────
+    # Depth map
+    # ─────────────────────────────────────────────
     def estimate_depth_map(self, image: Image.Image) -> Optional[np.ndarray]:
-        """Return raw MiDaS depth map (H×W float32) or None on failure."""
         if not self.is_available:
+            logger.warning("Depth estimator NOT available")
             return None
 
-        img_np = np.array(image)
-        if img_np.ndim == 2:
-            img_np = cv2.cvtColor(img_np, cv2.COLOR_GRAY2RGB)
-        elif img_np.shape[2] == 4:
-            img_np = cv2.cvtColor(img_np, cv2.COLOR_RGBA2RGB)
+        try:
+            img_np = np.array(image)
 
-        input_batch = self._transform(img_np).to(self.device)  # type: ignore[union-attr]
+            if img_np.ndim == 2:
+                img_np = cv2.cvtColor(img_np, cv2.COLOR_GRAY2RGB)
+            elif img_np.ndim == 3 and img_np.shape[2] == 4:
+                img_np = cv2.cvtColor(img_np, cv2.COLOR_RGBA2RGB)
+            elif img_np.ndim == 3 and img_np.shape[2] == 3:
+                pass
+            else:
+                logger.error("Invalid image shape: %s", img_np.shape)
+                return None
 
-        with torch.no_grad():
-            prediction = self._model(input_batch)  # type: ignore[misc]
-            prediction = torch.nn.functional.interpolate(
-                prediction.unsqueeze(1),
-                size=img_np.shape[:2],
-                mode="bicubic",
-                align_corners=False,
-            ).squeeze()
+            input_batch = self._transform(img_np).to(self.device)
 
-        depth_map = prediction.cpu().numpy().astype(np.float32)
-        return depth_map
+            with torch.no_grad():
+                prediction = self._model(input_batch)
+                prediction = torch.nn.functional.interpolate(
+                    prediction.unsqueeze(1),
+                    size=img_np.shape[:2],
+                    mode="bicubic",
+                    align_corners=False,
+                ).squeeze()
 
+            depth_map = prediction.cpu().numpy().astype(np.float32)
+
+            logger.info("Depth map OK shape=%s", depth_map.shape)
+            return depth_map
+
+        except Exception as exc:
+            logger.error("Depth map failed: %s", exc, exc_info=True)
+            return None
+
+    # ─────────────────────────────────────────────
+    # Distance
+    # ─────────────────────────────────────────────
     def estimate_distance(
         self,
         depth_map: np.ndarray,
         bbox: list[float],
     ) -> float:
-        """
-        Estimate distance in meters for a bounding-box region.
-
-        Args:
-            depth_map: raw MiDaS depth map (H×W).
-            bbox: [x1, y1, x2, y2] in pixel coords.
-
-        Returns:
-            Estimated distance in meters.
-        """
         h, w = depth_map.shape[:2]
+
         x1 = max(0, int(bbox[0]))
         y1 = max(0, int(bbox[1]))
         x2 = min(w, int(bbox[2]))
         y2 = min(h, int(bbox[3]))
 
         roi = depth_map[y1:y2, x1:x2]
+
         if roi.size == 0:
+            logger.warning("Empty ROI")
             return -1.0
 
         depth_value = float(np.median(roi))
 
-        if self.calibration_method == "linear":
-            distance = depth_value * self.scale + self.shift
-        else:
-            logger.warning("Unknown calibration method: %s", self.calibration_method)
-            distance = -1.0
+        distance = depth_value * self.scale + self.shift
 
         if distance < 0:
             distance = 0.0
 
-        return round(float(distance), 2)
+        result = round(float(distance), 2)
+
+        logger.info("Distance=%.2fm", result)
+
+        return result

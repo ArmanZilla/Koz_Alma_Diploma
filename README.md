@@ -88,6 +88,7 @@ docker run -d --name redis -p 6379:6379 redis:7-alpine
 # Run server
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+ docker compose up -d --build
 
 API docs: http://localhost:8000/docs
 Admin panel: http://localhost:8000/admin/login

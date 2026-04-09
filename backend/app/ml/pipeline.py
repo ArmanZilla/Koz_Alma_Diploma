@@ -60,7 +60,14 @@ class ScanPipeline:
             return ScanResult(detections=[], text=text, has_unknown=True)
 
         # 3. Depth estimation
+        logger.info(
+            "Depth estimator available: %s", self.depth.is_available,
+        )
         depth_map = self.depth.estimate_depth_map(image)
+        logger.info(
+            "Depth map: %s",
+            "None" if depth_map is None else f"shape={depth_map.shape}",
+        )
 
         # 4. Build per-detection dicts with distances
         det_dicts: list[Dict[str, Any]] = []

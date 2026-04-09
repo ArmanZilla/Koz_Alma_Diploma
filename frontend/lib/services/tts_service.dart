@@ -23,6 +23,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../core/constants.dart';
+import '../core/platform_util.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
@@ -167,9 +168,11 @@ class TtsService {
   ///   - Network timeout (4 seconds)
   ///   - Fallback to flutter_tts as last resort
   Future<void> _speakKzViaBackend(String text) async {
+    final textPreview = text.length > 40 ? '${text.substring(0, 40)}…' : text;
+
     // ── Dedup: skip if same text is already in-flight ──
     if (_pendingKzText == text) {
-      debugPrint('TTS: skipping duplicate in-flight request: ${text.substring(0, text.length.clamp(0, 30))}');
+      debugPrint('TTS[KZ]: ⏭ skipping duplicate in-flight: "$textPreview"');
       return;
     }
 
@@ -177,29 +180,35 @@ class TtsService {
 
     // ── Client-side cache check ──
     if (_kzAudioCache.containsKey(cacheKey)) {
-      debugPrint('TTS: client cache hit for KZ phrase');
+      debugPrint('TTS[KZ]: ✅ cache hit — playing cached audio');
       try {
         await _playAudioBytes(_kzAudioCache[cacheKey]!);
         return;
       } catch (e) {
-        debugPrint('TTS: cached audio playback failed: $e');
+        debugPrint('TTS[KZ]: ❌ cached audio playback failed: $e');
         _kzAudioCache.remove(cacheKey);
       }
     }
 
     _pendingKzText = text;
 
+    final baseUrl = AppConstants.apiBaseUrl;
+    debugPrint('TTS[KZ]: 🔊 requesting backend Piper for: "$textPreview"');
+    debugPrint('TTS[KZ]: 🌐 backend URL = $baseUrl');
+
     try {
       // ── Web platform: use platform_audio (dart:html HttpRequest) ──
       if (kIsWeb) {
         try {
+          debugPrint('TTS[KZ]: 🌍 using web platform_audio path');
           await platform_audio.speakTextViaBackend(
-            text, 'kz', _volume, _userRate, AppConstants.apiBaseUrl,
+            text, 'kz', _volume, _userRate, baseUrl,
           );
+          debugPrint('TTS[KZ]: ✅ web backend playback OK');
           _pendingKzText = null;
           return;
         } catch (e) {
-          debugPrint('TTS: web backend speak failed: $e');
+          debugPrint('TTS[KZ]: ❌ web backend failed: $e');
           // Fall through to fallback
         }
         _pendingKzText = null;
@@ -207,24 +216,34 @@ class TtsService {
       }
 
       // ── Mobile platform: HTTP call via http package ──
-      final url = '${AppConstants.apiBaseUrl}/tts/speak';
+      final url = '$baseUrl/tts/speak';
       final body = jsonEncode({
         'text': text,
         'lang': 'kz',
         'speed': _userRate,
       });
 
+      debugPrint('TTS[KZ]: 📡 POST $url (speed=$_userRate)');
+
+      final stopwatch = Stopwatch()..start();
       final response = await http.post(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
         body: body,
       ).timeout(const Duration(seconds: 4));
+      stopwatch.stop();
+
+      debugPrint('TTS[KZ]: 📨 response status=${response.statusCode} '
+          'in ${stopwatch.elapsedMilliseconds}ms '
+          '(body=${response.body.length} chars)');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final audioB64 = data['audio_base64'] as String?;
 
         if (audioB64 != null && audioB64.isNotEmpty) {
+          debugPrint('TTS[KZ]: ✅ received audio (${audioB64.length} b64 chars)');
+
           // Cache the result for future use
           if (text.length < 200) {
             if (_kzAudioCache.length >= _kzCacheMax) {
@@ -237,14 +256,26 @@ class TtsService {
           await _playAudioBytes(audioB64);
           _pendingKzText = null;
           return;
+        } else {
+          debugPrint('TTS[KZ]: ⚠️ 200 OK but audio_base64 is empty/null');
         }
+      } else {
+        debugPrint('TTS[KZ]: ⚠️ backend returned HTTP ${response.statusCode}');
       }
 
-      debugPrint('TTS: backend /tts/speak returned no audio (status=${response.statusCode})');
       // Fall through to fallback
+    } on http.ClientException catch (e) {
+      debugPrint('TTS[KZ]: ❌ network error (backend unreachable?): $e');
+      debugPrint('TTS[KZ]: ℹ️  check that backend is running at $baseUrl');
+      if (!kIsWeb && isAndroid()) {
+        debugPrint('TTS[KZ]: ℹ️  for real device use: '
+            'flutter run --dart-define=API_URL=http://<LAN_IP>:8000');
+      }
     } catch (e) {
-      debugPrint('TTS: backend KZ speak failed: $e');
-      // Fall through to fallback
+      debugPrint('TTS[KZ]: ❌ backend speak failed (${e.runtimeType}): $e');
+      if (e.toString().contains('TimeoutException')) {
+        debugPrint('TTS[KZ]: ℹ️  request timed out — is $baseUrl reachable from this device?');
+      }
     }
 
     _pendingKzText = null;
@@ -253,14 +284,15 @@ class TtsService {
     // Only on mobile where flutter_tts is available.
     // Quality will be poor but at least the user hears something.
     if (_localTtsAvailable && _flutterTts != null) {
+      debugPrint('TTS[KZ]: ⚠️ FALLBACK → flutter_tts (Google TTS) — quality will degrade!');
+      debugPrint('TTS[KZ]: ⚠️ to fix: run with --dart-define=API_URL=http://<LAN_IP>:8000');
       try {
-        debugPrint('TTS: falling back to flutter_tts for KZ (last resort)');
         await _flutterTts!.setLanguage('kk-KZ');
         await _flutterTts!.setVolume(_volume);
         await _flutterTts!.setSpeechRate(_normalizeRate(_userRate));
         await _flutterTts!.speak(text);
       } catch (e) {
-        debugPrint('TTS: flutter_tts fallback also failed: $e');
+        debugPrint('TTS[KZ]: ❌ flutter_tts fallback also failed: $e');
       }
     }
   }
