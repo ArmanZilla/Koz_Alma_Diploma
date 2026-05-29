@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["python3", "gcc", "libxcb", "xorg.libX11"]
+nixPkgs = ["python3", "gcc", "pkg-config", "libxcb", "xorg.libX11", "libGL"]
 
 [phases.install]
 cmds = [
