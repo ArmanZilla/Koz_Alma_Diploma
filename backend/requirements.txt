@@ -8,6 +8,13 @@ python-dotenv>=1.0.0
 
 # ── ML ──
 ultralytics>=8.0.200
+
+# Force headless OpenCV
+opencv-python-headless>=4.6.0
+
+# Constraints to prevent opencv-python from being installed
+-c constraints.txt
+
 torch>=2.0.0
 torchvision>=0.15.0
 timm>=0.9.0
