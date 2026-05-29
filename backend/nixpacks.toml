@@ -1,0 +1,2 @@
+[phases.setup]
+nixPkgs = ["python3", "gcc", "libxcb", "xorg.libX11", "xorg.libXext", "xorg.libXrender"]
