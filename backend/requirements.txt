@@ -9,16 +9,15 @@ python-dotenv>=1.0.0
 # ── ML ──
 ultralytics>=8.0.200
 
-# Force headless OpenCV
+# Force headless OpenCV (must come after ultralytics)
 opencv-python-headless>=4.6.0
 
-# Constraints to prevent opencv-python from being installed
+# Constraints to block opencv-python pulled by ultralytics
 -c constraints.txt
 
 torch>=2.0.0
 torchvision>=0.15.0
 timm>=0.9.0
-opencv-python-headless>=4.6.0
 Pillow>=10.0.0
 numpy>=1.24.0
 
@@ -47,7 +46,7 @@ twilio>=8.0.0
 # ── Database migrations ──
 alembic>=1.13.0
 
-# ── Data checks / visualization (optional — used by scripts/) ──
+# ── Data checks / visualization (optional) ──
 matplotlib>=3.7.0
 seaborn>=0.13.0
 pandas>=2.0.0
