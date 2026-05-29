@@ -1,8 +1,0 @@
-[phases.setup]
-nixPkgs = ["python3", "gcc", "libxcb", "xorg.libX11"]
-
-[phases.install]
-cmds = [
-  "python -m venv --copies /opt/venv",
-  ". /opt/venv/bin/activate && pip install --no-cache-dir -r requirements.txt"
-]
