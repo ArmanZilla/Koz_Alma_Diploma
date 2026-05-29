@@ -1,2 +1,0 @@
-# constraints.txt
-opencv-python==0.0.0
