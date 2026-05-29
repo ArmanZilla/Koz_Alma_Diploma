@@ -1,1 +1,2 @@
+*.onnx filter=lfs diff=lfs merge=lfs -text
 backend/models/kk_KZ-issai-high.onnx filter=lfs diff=lfs merge=lfs -text
