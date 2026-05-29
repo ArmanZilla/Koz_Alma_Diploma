@@ -60,3 +60,5 @@ data/analysis_outputs/
 
 # Alembic generated
 backend/alembic/versions/__pycache__/
+
+!backend/weights/best.pt

@@ -92,6 +92,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 API docs: http://localhost:8000/docs
 Admin panel: http://localhost:8000/admin/login
+flutter run --dart-define=API_URL=http://192.168.100.152:8000
 
 ### Backend — Docker
 
@@ -124,6 +125,8 @@ flutter run
 
 # For physical device (specify your backend IP):
 flutter run --dart-define=API_URL=http://YOUR_SERVER_IP:8000
+flutter run --dart-define=API_URL=http://192.168.100.152:8000
+
 
 # Build APK:
 flutter build apk --dart-define=API_URL=https://api.kozalma.kz

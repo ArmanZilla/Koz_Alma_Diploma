@@ -50,7 +50,11 @@ def _is_authenticated(request: Request) -> bool:
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request) -> HTMLResponse:
     """Render login form."""
-    return templates.TemplateResponse("login.html", {"request": request, "error": ""})
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={"error": ""},
+    )
 
 
 @router.post("/login")
@@ -62,14 +66,20 @@ async def login_submit(
     """Validate login + password and set session cookie."""
     if not verify_credentials(username, password):
         return templates.TemplateResponse(
-            "login.html",
-            {"request": request, "error": "Неверный логин или пароль"},
+            request=request,
+            name="login.html",
+            context={"error": "Неверный логин или пароль"},
             status_code=401,
         )
 
     token = _get_serializer().dumps({"admin": True, "user": username})
     response = RedirectResponse(url="/admin", status_code=303)
-    response.set_cookie(SESSION_COOKIE, token, max_age=MAX_AGE, httponly=True)
+    response.set_cookie(
+        key=SESSION_COOKIE,
+        value=token,
+        max_age=MAX_AGE,
+        httponly=True,
+    )
     return response
 
 
@@ -93,14 +103,14 @@ async def dashboard(request: Request) -> HTMLResponse:
             error_msg = "Ошибка подключения к хранилищу"
 
     return templates.TemplateResponse(
-        "dashboard.html",
-        {"request": request, "groups": groups, "error_msg": error_msg},
+        request=request,
+        name="dashboard.html",
+        context={
+            "groups": groups,
+            "error_msg": error_msg,
+        },
     )
 
-
-# ────────────────────────────────────────────────────────────────────────
-# Batch detail page
-# ────────────────────────────────────────────────────────────────────────
 
 @router.get("/batch/{batch_id}", response_class=HTMLResponse)
 async def batch_detail(batch_id: str, request: Request) -> HTMLResponse:
@@ -111,9 +121,9 @@ async def batch_detail(batch_id: str, request: Request) -> HTMLResponse:
     mgr = request.app.state.unknown_manager
     if mgr is None:
         return templates.TemplateResponse(
-            "batch_detail.html",
-            {
-                "request": request,
+            request=request,
+            name="batch_detail.html",
+            context={
                 "batch": None,
                 "images": [],
                 "error_msg": "S3 storage not configured",
@@ -125,7 +135,6 @@ async def batch_detail(batch_id: str, request: Request) -> HTMLResponse:
     images: List[Dict[str, Any]] = []
 
     try:
-        # Get batch metadata
         state = mgr._read_batch_state(batch_id) or {}
         batch = {
             "batch_id": batch_id,
@@ -137,7 +146,6 @@ async def batch_detail(batch_id: str, request: Request) -> HTMLResponse:
             "label_count": state.get("label_count", 0),
         }
 
-        # Get image list
         images = mgr.list_images(batch_id)
 
     except Exception as exc:
@@ -145,19 +153,15 @@ async def batch_detail(batch_id: str, request: Request) -> HTMLResponse:
         error_msg = "Ошибка загрузки данных батча"
 
     return templates.TemplateResponse(
-        "batch_detail.html",
-        {
-            "request": request,
+        request=request,
+        name="batch_detail.html",
+        context={
             "batch": batch,
             "images": images,
             "error_msg": error_msg,
         },
     )
 
-
-# ────────────────────────────────────────────────────────────────────────
-# Downloads
-# ────────────────────────────────────────────────────────────────────────
 
 @router.get("/download/{group_id:path}")
 async def download_group(group_id: str, request: Request) -> Response:
@@ -228,7 +232,6 @@ async def image_proxy(key: str, request: Request) -> Response:
     if data is None:
         return Response(content=b"Not found", status_code=404)
 
-    # Determine media type from extension
     media_type = "image/jpeg"
     if key.endswith(".png"):
         media_type = "image/png"
@@ -246,10 +249,6 @@ async def logout(request: Request) -> Response:
     return response
 
 
-# ────────────────────────────────────────────────────────────────────────
-# Admin API (JWT-protected, for future mobile/programmatic use)
-# ────────────────────────────────────────────────────────────────────────
-
 @router.get("/api/groups")
 async def api_groups(
     request: Request,
@@ -259,9 +258,11 @@ async def api_groups(
     mgr = request.app.state.unknown_manager
     if mgr is None:
         return JSONResponse({"groups": [], "error": "Storage not configured"})
+
     try:
         groups = mgr.list_groups()
     except Exception as exc:
         logger.error("Admin API groups failed: %s", exc)
         return JSONResponse({"groups": [], "error": "Storage error"})
+
     return JSONResponse({"groups": groups, "error": None})
