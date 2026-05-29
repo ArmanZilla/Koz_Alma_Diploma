@@ -1,10 +1,21 @@
 [phases.setup]
-nixPkgs = ["python3", "gcc", "pkg-config", "xorg.libxcb", "xorg.libX11", "libGL"]
+nixPkgs = [
+  "python3",
+  "gcc",
+  "pkg-config",
+  "xorg.libxcb",
+  "xorg.libX11",
+  "xorg.libXau",
+  "xorg.libXdmcp",
+  "libGL",
+  "glib"
+]
 
 [phases.install]
 cmds = [
   "python -m venv --copies /opt/venv",
   ". /opt/venv/bin/activate && pip install --no-cache-dir -r requirements.txt",
-  ". /opt/venv/bin/activate && pip uninstall -y opencv-python || true",
-  ". /opt/venv/bin/activate && pip install --no-cache-dir opencv-python-headless>=4.6.0"
+  ". /opt/venv/bin/activate && pip uninstall -y opencv-python opencv-contrib-python || true",
+  ". /opt/venv/bin/activate && pip install --force-reinstall --no-cache-dir opencv-python-headless",
+  ". /opt/venv/bin/activate && pip list | grep opencv"
 ]
