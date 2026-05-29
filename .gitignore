@@ -62,3 +62,5 @@ data/analysis_outputs/
 backend/alembic/versions/__pycache__/
 
 !backend/weights/ml/best.pt
+!backend/models/kk_KZ-issai-high.onnx
+!backend/models/kk_KZ-issai-high.onnx.json
